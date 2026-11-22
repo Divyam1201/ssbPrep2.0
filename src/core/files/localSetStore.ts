@@ -21,6 +21,7 @@ export interface StoredLocalSet {
   moduleId: string;
   name: string;
   files: StoredLocalFile[];
+  words?: string[];
   savedAt: number;
 }
 
@@ -60,6 +61,47 @@ function openDb(): Promise<IDBDatabase> {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error("Failed to open DB"));
   });
+}
+
+export async function saveLocalCustomWordsSet(
+  moduleId: string,
+  name: string,
+  words: readonly string[],
+): Promise<LocalStoreResult<StoredLocalSet>> {
+  const id = `${moduleId}:custom`;
+  const record: StoredLocalSet = {
+    id,
+    moduleId,
+    name: name || "Custom Practice Set",
+    files: [],
+    words: [...words],
+    savedAt: Date.now(),
+  };
+
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.put(record);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+
+    return {
+      data: record,
+      isInMemoryFallback: false,
+    };
+  } catch (err) {
+    console.warn("IndexedDB save failed, falling back to memory:", err);
+    hasFallbackOccurred = true;
+    memoryStore.set(id, record);
+    return {
+      data: record,
+      isInMemoryFallback: true,
+      message: "Saving in-memory for this session (local storage unavailable).",
+    };
+  }
 }
 
 /**

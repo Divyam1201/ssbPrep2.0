@@ -55,8 +55,7 @@ export default function Home() {
       </section>
 
       <footer className="mt-12 border-t border-zinc-800 pt-6 text-xs text-zinc-500">
-        WAT, SRT and other modules coming soon
-        required.
+        SSB Psychological Tests Practice · No login required for public candidates.
       </footer>
     </main>
   );

@@ -15,6 +15,7 @@ export interface ISet extends Document {
   module: ModuleType;
   name: string;
   files: ISetFile[];
+  words?: string[];
   itemCount: number;
   maxItems?: number;
   isComplete?: boolean;
@@ -44,6 +45,10 @@ const SetSchema = new Schema<ISet>(
         mimeType: { type: String },
       },
     ],
+    words: {
+      type: [String],
+      default: [],
+    },
     itemCount: {
       type: Number,
       required: true,

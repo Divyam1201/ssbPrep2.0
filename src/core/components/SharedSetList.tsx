@@ -152,7 +152,7 @@ export function SharedSetList({
 
               <div className="mt-3 flex items-center justify-between text-[11px] text-[#8c8273]">
                 <span>
-                  {set.itemCount} {isTat ? "image" : "item"}
+                  {set.itemCount} {isTat ? "image" : module === "wat" ? "word" : "item"}
                   {set.itemCount === 1 ? "" : "s"}
                 </span>
                 <span>{formattedDate}</span>

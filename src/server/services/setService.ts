@@ -26,7 +26,8 @@ export const MODULE_MAX_ITEMS: Partial<Record<ModuleType, number>> = {
 export interface CreateSetInput {
   module: ModuleType;
   name: string;
-  files: ISetFile[];
+  files?: ISetFile[];
+  words?: string[];
   itemCount?: number;
 }
 
@@ -107,59 +108,84 @@ export async function createSet(input: CreateSetInput): Promise<ISet> {
     throw new Error("Set name is required");
   }
 
-  // 3. Validate files array
-  if (!Array.isArray(files) || files.length === 0) {
-    await cleanupOrphanedFiles();
-    throw new Error("At least one uploaded file is required");
-  }
+  // 3. Validate contents (files or words)
+  const isWatWordsSet =
+    module === "wat" && Array.isArray(input.words) && input.words.length > 0;
 
-  // 4. Validate per-module file count limits
-  if (module === "tat") {
-    const maxTat = MODULE_MAX_ITEMS.tat!;
-    if (files.length > maxTat) {
+  let validatedWords: string[] = [];
+
+  if (isWatWordsSet) {
+    validatedWords = input.words!
+      .map((w) => String(w).trim())
+      .filter((w) => w.length > 0);
+
+    if (validatedWords.length === 0) {
+      await cleanupOrphanedFiles();
+      throw new Error("At least one word is required for WAT set");
+    }
+
+    if (validatedWords.length > MODULE_MAX_ITEMS.wat!) {
       await cleanupOrphanedFiles();
       throw new Error(
-        `TAT sets cannot exceed ${maxTat} images (received ${files.length})`,
+        `WAT sets cannot exceed ${MODULE_MAX_ITEMS.wat} words (received ${validatedWords.length})`,
       );
     }
   } else {
-    // WAT, SRT, Lecturette, GD use a single uploaded material document
-    if (files.length !== 1) {
+    // 3b. Validate files array for file-based sets
+    if (!Array.isArray(files) || files.length === 0) {
       await cleanupOrphanedFiles();
-      throw new Error(
-        `${module.toUpperCase()} source material must be exactly 1 file`,
-      );
+      throw new Error("At least one uploaded file is required");
     }
-  }
 
-  // 5. Validate file keys and URLs belong to UploadThing
-  for (const file of files) {
-    if (!isValidUploadThingKey(file.key)) {
-      await cleanupOrphanedFiles();
-      throw new Error(`Invalid UploadThing file key: "${file.key}"`);
+    // 4. Validate per-module file count limits
+    if (module === "tat") {
+      const maxTat = MODULE_MAX_ITEMS.tat!;
+      if (files.length > maxTat) {
+        await cleanupOrphanedFiles();
+        throw new Error(
+          `TAT sets cannot exceed ${maxTat} images (received ${files.length})`,
+        );
+      }
+    } else {
+      // WAT, SRT, Lecturette, GD use a single uploaded material document
+      if (files.length !== 1) {
+        await cleanupOrphanedFiles();
+        throw new Error(
+          `${module.toUpperCase()} source material must be exactly 1 file`,
+        );
+      }
     }
-    if (!isValidUploadThingUrl(file.url)) {
-      await cleanupOrphanedFiles();
-      throw new Error(`Invalid UploadThing file URL: "${file.url}"`);
-    }
-  }
 
-  // 6. Pre-validation checks (e.g. TAT blank image validator)
-  if (module === "tat") {
-    const validation = await tatImageValidator.validateImages(files);
-    if (!validation.allValid) {
-      await cleanupOrphanedFiles();
-      throw new Error(
-        "One or more uploaded images failed validation (blank or invalid)",
-      );
+    // 5. Validate file keys and URLs belong to UploadThing
+    for (const file of files) {
+      if (!isValidUploadThingKey(file.key)) {
+        await cleanupOrphanedFiles();
+        throw new Error(`Invalid UploadThing file key: "${file.key}"`);
+      }
+      if (!isValidUploadThingUrl(file.url)) {
+        await cleanupOrphanedFiles();
+        throw new Error(`Invalid UploadThing file URL: "${file.url}"`);
+      }
+    }
+
+    // 6. Pre-validation checks (e.g. TAT blank image validator)
+    if (module === "tat") {
+      const validation = await tatImageValidator.validateImages(files);
+      if (!validation.allValid) {
+        await cleanupOrphanedFiles();
+        throw new Error(
+          "One or more uploaded images failed validation (blank or invalid)",
+        );
+      }
     }
   }
 
   // 7. Calculate item count & set classification
-  const finalItemCount =
-    typeof input.itemCount === "number" && input.itemCount > 0
+  const finalItemCount = isWatWordsSet
+    ? validatedWords.length
+    : typeof input.itemCount === "number" && input.itemCount > 0
       ? input.itemCount
-      : files.length;
+      : (files?.length ?? 0);
 
   const classification = computeSetClassification(module, finalItemCount);
 
@@ -170,13 +196,14 @@ export async function createSet(input: CreateSetInput): Promise<ISet> {
     const createdSet = await SetModel.create({
       module,
       name: trimmedName,
-      files: files.map((f) => ({
+      files: (files || []).map((f) => ({
         key: f.key,
         url: f.url,
         name: f.name,
         size: f.size,
         mimeType: f.mimeType,
       })),
+      words: validatedWords,
       itemCount: finalItemCount,
       maxItems: classification.maxItems,
       isComplete: classification.isComplete,
@@ -203,6 +230,7 @@ export interface PublicRecentSet {
   maxItems?: number;
   isComplete?: boolean;
   setType?: SetClassification;
+  words?: string[];
   files: Array<{
     key: string;
     url: string;
@@ -239,7 +267,8 @@ export async function getRecentSets(
     maxItems: s.maxItems,
     isComplete: s.isComplete,
     setType: s.setType,
-    files: s.files.map((f) => ({
+    words: s.words || [],
+    files: (s.files || []).map((f) => ({
       key: f.key,
       url: f.url,
       name: f.name,
