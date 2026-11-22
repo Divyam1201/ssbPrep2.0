@@ -17,12 +17,14 @@ export function useTopics(): UseTopicsReturn {
   const [error, setError] = useState<string | null>(null);
   const [fetchToken, setFetchToken] = useState(0);
 
-  const refetch = useCallback(() => setFetchToken((t) => t + 1), []);
+  const refetch = useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+    setFetchToken((t) => t + 1);
+  }, []);
 
   useEffect(() => {
     let ignore = false;
-    setIsLoading(true);
-    setError(null);
 
     const load = async () => {
       try {

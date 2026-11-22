@@ -6,8 +6,8 @@ import {
   getAllTopics,
   seedDefaultTopics,
   type LecturetteTopicPublic,
+  type TopicInputTier,
 } from "@/server/services/lecturetteService";
-import type { LecturetteTier } from "@/server/models/LecturetteTopic";
 
 /**
  * GET /api/lecturette/topics
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 /**
  * POST /api/lecturette/topics
  * Admin-only: add one or many topics.
- * Body: { topics: [{ name: string, tier?: LecturetteTier }] }
+ * Body: { topics: [{ name: string, tier?: LecturetteTier | "not_sure" }] }
  */
 export async function POST(req: Request) {
   const isAdmin = await verifyAdminSession(req);
@@ -59,13 +59,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate each topic
-    const validTiers: LecturetteTier[] = ["veasy", "easy", "moderate", "high"];
-    const sanitized: Array<{ name: string; tier: LecturetteTier }> = [];
+    const validTiers: TopicInputTier[] = ["veasy", "easy", "moderate", "high", "not_sure"];
+    const sanitized: Array<{ name: string; tier: TopicInputTier }> = [];
 
     for (const item of body.topics) {
       const name = typeof item.name === "string"
-        ? item.name.trim().replace(/\s+/g, " ").slice(0, 80)
+        ? item.name.trim().replace(/\s+/g, " ")
         : "";
 
       if (!name) {
@@ -82,7 +81,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const tier: LecturetteTier = validTiers.includes(item.tier)
+      const tier: TopicInputTier = validTiers.includes(item.tier)
         ? item.tier
         : "moderate";
 

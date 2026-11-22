@@ -2,6 +2,7 @@ import type { ModuleDefinition } from "@/core/types";
 
 import { TatModule } from "./tat";
 import { WatModule } from "./wat";
+import { LecturetteModule } from "./lecturette";
 
 /**
  * The single list of modules the app knows about.
@@ -9,7 +10,11 @@ import { WatModule } from "./wat";
  * Adding a module = new folder under `src/modules/<id>/` + one line here.
  * Pages never import a module directly; they only read this registry.
  */
-export const modules: readonly ModuleDefinition[] = [TatModule, WatModule];
+export const modules: readonly ModuleDefinition[] = [
+  TatModule,
+  WatModule,
+  LecturetteModule,
+];
 
 for (const definition of modules) {
   if (
